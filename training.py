@@ -2,7 +2,12 @@ from argparse import ArgumentParser
 import json
 from tqdm import tqdm
 
+import torch
+
 from modules import ProposedModel
+
+def random_input():
+    return torch.randn(8, 32, 2, 3, 64, 64)
 
 def train(options=None, config=None):
     model = ProposedModel(config=config["model"])
