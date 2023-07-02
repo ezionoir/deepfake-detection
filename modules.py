@@ -14,6 +14,7 @@ class EfficientNetBlock(nn.Module):
 class Spatial(nn.Module):
     def __init__(self, config=None):
         super().__init__()
+        self.config = config
         self.efficient_net = EfficientNetBlock()
 
     def forward(self, x):
@@ -57,7 +58,7 @@ class ProposedModel(nn.Module):
         self.config = config
         self.input_shape = config["input-shape"]
 
-        self.spatial = Spatial()
+        self.spatial = Spatial(config=self.config["spatial"])
         self.spatiotemporal = Spatiotemporal(config=self.config["spatiotemporal"])
         self.decision_maker = nn.Linear(
             in_features=self.input_shape["groups-per-video"] * self.input_shape["frames-per-group"] + self.input_shape["groups-per-video"],
