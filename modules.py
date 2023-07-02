@@ -98,6 +98,6 @@ class ProposedModel(nn.Module):
         )
 
         # Make decision (merge two branches)
-        decision_make_input = torch.stack([spatial_result, spatiotemporal_result], dim=1).view(self.input_shape["batch-size"], -1)
+        decision_make_input = torch.cat([spatial_result, spatiotemporal_result], dim=1).view(self.input_shape["batch-size"], -1)
         decision_maker_output = self.decision_maker(decision_make_input)
         return decision_maker_output

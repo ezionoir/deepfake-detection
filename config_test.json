@@ -1,8 +1,8 @@
 {
     "model": {
         "input-shape": {
-            "batch-size": 8,
-            "groups-per-video": 32,
+            "batch-size": 4,
+            "groups-per-video": 8,
             "frames-per-group": 2,
             "channels": 3,
             "height": 64,
@@ -11,14 +11,14 @@
 
         "spatiotemporal": {
             "input-shape": {
-                "batch-size": 256,
+                "batch-size": 32,
                 "frames-per-group": 2,
                 "channels": 3,
                 "height": 64,
                 "width": 64
             },
             "motion-diff": {
-                "features": 16
+                "features": 3
             },
             "combinator": {
                 "features": 6

@@ -18,7 +18,7 @@
                 "width": 224
             },
             "motion-diff": {
-                "features": 16
+                "features": 3
             },
             "combinator": {
                 "features": 6
