@@ -32,7 +32,8 @@ def train(options=None, config=None):
         labels = label()
 
         # Forward pass
-        preds = model(input_)
+        output_ = model(input_)
+        preds = torch.sigmoid(output_)
 
         # Calculate loss
         loss = loss_func(preds, labels)
