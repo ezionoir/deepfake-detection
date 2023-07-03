@@ -20,13 +20,17 @@
             "motion-diff": {
                 "features": 3
             },
-            "combinator": {
-                "features": 6
+            "EfficientNet": {
+                "scale": "b0",
+                "num-classes": 1
             }
         },
 
         "spatial": {
-            
+            "EfficientNet": {
+                "scale": "b7",
+                "num-classes": 1
+            }
         }
     }
 }

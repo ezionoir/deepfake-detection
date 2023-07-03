@@ -3,9 +3,12 @@ import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
     
 class EfficientNetBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, config=None):
         super().__init__()
-        self.efficient_net = EfficientNet.from_pretrained('efficientnet-b7', num_classes=1)
+
+        self.config = config
+
+        self.efficient_net = EfficientNet.from_pretrained(model_name=f'efficientnet-{self.config["scale"]}', num_classes=self.config["num-classes"])
 
     def forward(self, x):
         output_ = self.efficient_net(x)
@@ -14,8 +17,10 @@ class EfficientNetBlock(nn.Module):
 class Spatial(nn.Module):
     def __init__(self, config=None):
         super().__init__()
+
         self.config = config
-        self.efficient_net = EfficientNetBlock()
+
+        self.efficient_net = EfficientNetBlock(config=self.config["EfficientNet"])
 
     def forward(self, x):
         '''
@@ -36,7 +41,7 @@ class Spatiotemporal(nn.Module):
             stride=1,
             padding=(0, 1, 1)
         )
-        self.efficient_net = EfficientNetBlock()
+        self.efficient_net = EfficientNetBlock(config=self.config["EfficientNet"])
 
     def forward(self, x):
         '''
