@@ -9,21 +9,40 @@ from modules import ProposedModel
 def random_input():
     return torch.randn(8, 32, 2, 3, 64, 64)
 
+def label():
+    return torch.Tensor(
+        [
+            [1.],
+            [1.],
+            [0.],
+            [1.],
+        ]
+    )
+
 def train(options=None, config=None):
     model = ProposedModel(config=config["model"])
+    loss_func = torch.nn.BCELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     for epoch in range(options.num_epochs):
         print(f'Epoch {epoch + 1}')
 
-        print('Loading data')
+        # Load data
+        input_ = random_input()
+        labels = label()
 
-        print('Forwarding')
+        # Forward pass
+        preds = model(input_)
 
-        print('Backwarding')
+        # Calculate loss
+        loss = loss_func(preds, labels)
 
-        print('Updating weights')
-        
-        print('Saving model')
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+
+        # Update weights
+        optimizer.step()
 
 if __name__ == '__main__':
     parser = ArgumentParser()
