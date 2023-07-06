@@ -69,6 +69,7 @@ class ProposedModel(nn.Module):
             in_features=self.input_shape["groups-per-video"] * self.input_shape["frames-per-group"] + self.input_shape["groups-per-video"],
             out_features=1
         )
+        self.activation = nn.Sigmoid()
 
     def forward(self, x):
         '''
@@ -105,4 +106,6 @@ class ProposedModel(nn.Module):
         # Make decision (merge two branches)
         decision_make_input = torch.cat([spatial_result, spatiotemporal_result], dim=1).view(self.input_shape["batch-size"], -1)
         decision_maker_output = self.decision_maker(decision_make_input)
-        return decision_maker_output
+
+        output_ = self.activation(decision_maker_output)
+        return output_

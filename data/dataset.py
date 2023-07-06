@@ -98,6 +98,7 @@ class TestDataset(Dataset):
             for frame_name in group:
                 image = cv2.imread(os.path.join(folder_path, frame_name))
                 image = cv2.resize(image, (64, 64))
+                image = cv2.normalize(image.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = np.transpose(image, axes=(2, 0, 1))
                 volume.append(image)
