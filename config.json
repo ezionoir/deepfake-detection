@@ -9,27 +9,35 @@
             "width": 64
         },
 
-        "spatiotemporal": {
-            "input-shape": {
-                "batch-size": 32,
-                "frames-per-group": 2,
-                "channels": 3,
-                "height": 64,
-                "width": 64
+        "submodules": {
+            "spatiotemporal": {
+                "input-shape": {
+                    "batch-size": 32,
+                    "frames-per-group": 2,
+                    "channels": 3,
+                    "height": 64,
+                    "width": 64
+                },
+                "motion-diff": {
+                    "features": 3
+                },
+                "EfficientNet": {
+                    "scale": "b0",
+                    "num-classes": 1
+                }
             },
-            "motion-diff": {
-                "features": 3
-            },
-            "EfficientNet": {
-                "scale": "b0",
-                "num-classes": 1
-            }
-        },
-
-        "spatial": {
-            "EfficientNet": {
-                "scale": "b7",
-                "num-classes": 1
+    
+            "spatial": {
+                "input-shape": {
+                    "batch-size": 64,
+                    "channels": 3,
+                    "height": 64,
+                    "width": 64
+                },
+                "EfficientNet": {
+                    "scale": "b7",
+                    "num-classes": 1
+                }
             }
         }
     },

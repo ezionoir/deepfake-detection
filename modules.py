@@ -11,8 +11,8 @@ class EfficientNetBlock(nn.Module):
         self.efficient_net = EfficientNet.from_pretrained(model_name=f'efficientnet-{self.config["scale"]}', num_classes=self.config["num-classes"])
 
     def forward(self, x):
-        output_ = self.efficient_net(x)
-        return output_
+        x = self.efficient_net(x)
+        return x
 
 class Spatial(nn.Module):
     def __init__(self, config=None):
@@ -20,92 +20,130 @@ class Spatial(nn.Module):
 
         self.config = config
 
-        self.efficient_net = EfficientNetBlock(config=self.config["EfficientNet"])
+        self.shape = {
+            'n': config["input-shape"]["batch-size"],
+            'c': config["input-shape"]["channels"],
+            'h': config["input-shape"]["height"],
+            'w': config["input-shape"]["width"]
+        }
+
+        self.eff = EfficientNetBlock(config=self.config["EfficientNet"])
 
     def forward(self, x):
-        '''
-        x: shape = (batch_size * num_frames_per_video, 3, h, w)
-        '''
-        output_ = self.efficient_net(x)
-        return output_
+        # x: shape = (n, c, h, w)
+        x_ = self.eff(x)
+        return x
 
 class Spatiotemporal(nn.Module):
     def __init__(self, config=None):
         super().__init__()
+        
         self.config = config
 
-        self.motion_diff = nn.Conv3d(
+        self.shape = {
+            'n': config["input-shape"]["batch-size"],
+            'd': config["input-shape"]["frames-per-group"],
+            'c': config["input-shape"]["channels"],
+            'h': config["input-shape"]["height"],
+            'w': config["input-shape"]["width"]
+        }
+
+        # Motion differences
+        self.conv3d_1 = nn.Conv3d(
             in_channels=3,
             out_channels=self.config["motion-diff"]["features"],
-            kernel_size=(self.config["input-shape"]["frames-per-group"], 3, 3),
+            kernel_size=(self.shape['d'], 3, 3),
             stride=1,
             padding=(0, 1, 1)
         )
-        self.efficient_net = EfficientNetBlock(config=self.config["EfficientNet"])
+
+        # EfficientNet block
+        self.eff = EfficientNetBlock(config=self.config["EfficientNet"])
 
     def forward(self, x):
-        '''
-        x: shape = (batch_size, num_frames_per_video, channels, h, w)
-        '''
+        # x: shape = (n, d, c, h, w)
 
         # Convert to (batch_size, channels, depth, height, width)
-        motion_diff_input = x.permute(0, 2, 1, 3, 4)
-        motion_diff_output = self.motion_diff(motion_diff_input)
+        x = x.permute(0, 2, 1, 3, 4)
+        x = self.conv3d_1(x)
 
         # Convert back to (batch_size, channels, height, width)
-        efficient_net_input = motion_diff_output.squeeze()
-        output_ = self.efficient_net(efficient_net_input)
-        return output_
+        x = x.squeeze()
+        x = self.eff(x)
+        return x
 
-class ProposedModel(nn.Module):
+class TheModel(nn.Module):
     def __init__(self, config=None):
         super().__init__()
-        self.config = config
-        self.input_shape = config["input-shape"]
 
-        self.spatial = Spatial(config=self.config["spatial"])
-        self.spatiotemporal = Spatiotemporal(config=self.config["spatiotemporal"])
-        self.decision_maker = nn.Linear(
-            in_features=self.input_shape["groups-per-video"] * self.input_shape["frames-per-group"] + self.input_shape["groups-per-video"],
+        # Input shape
+        self.shape = {
+            'n': config["input-shape"]["batch-size"],
+            'g': config["input-shape"]["groups-per-video"],
+            'f': config["input-shape"]["frames-per-group"],
+            'c': config["input-shape"]["channels"],
+            'h': config["input-shape"]["height"],
+            'w': config["input-shape"]["width"]
+        }
+
+        # Sub-modules configuration
+        self.subs = config["submodules"]
+
+        # Spatial block
+        self.spa = Spatial(config=self.subs["spatial"])
+
+        # Spatiotemporal block
+        self.spt = Spatiotemporal(config=self.subs["spatiotemporal"])
+
+        # Merging block
+        self.sig_1 = nn.Sigmoid()
+        self.ln_1 = nn.Linear(
+            in_features=self.shape['g'] * self.shape['f'] + self.shape['g'],
+            out_features=self.shape['g']
+        )
+        self.sig_2 = nn.Sigmoid()
+        self.ln_2 = nn.Linear(
+            in_features=self.shape['g'],
             out_features=1
         )
-        self.activation = nn.Sigmoid()
+        self.sig_3 = nn.Sigmoid()
 
     def forward(self, x):
-        '''
-        x: shape = (batch_size, num_groups, num_frames_per_group, channels, h, w) = (8, 32, 2, 3, 224, 224)
-        '''
+        # x: shape = (n, g, f, c, h, w)
 
         # Spatial branch
-        spatial_input = x.view(
-            self.input_shape["batch-size"] * self.input_shape["groups-per-video"] * self.input_shape["frames-per-group"],
-            self.input_shape["channels"],
-            self.input_shape["height"],
-            self.input_shape["width"]
+        x_spa = x.view(
+            self.shape['n'] * self.shape['g'] * self.shape['f'],
+            self.shape['c'],
+            self.shape['h'],
+            self.shape['w']
         )
-        spatial_output = self.spatial(spatial_input)
-        spatial_result = spatial_output.view(
-            self.input_shape["batch-size"],
-            self.input_shape["groups-per-video"] * self.input_shape["frames-per-group"]
+        x_spa = self.spa(x_spa)
+        x_spa = x_spa.view(
+            self.shape['n'],
+            self.shape['g'] * self.shape['f']
         )
 
         # Spatiotemporal branch
-        spatiotemporal_input = x.view(
-            self.input_shape["batch-size"] * self.input_shape["groups-per-video"],
-            self.input_shape["frames-per-group"],
-            self.input_shape["channels"],
-            self.input_shape["height"],
-            self.input_shape["width"]
+        x_spt = x.view(
+            self.shape['n'] * self.shape['g'],
+            self.shape['f'],
+            self.shape['c'],
+            self.shape['h'],
+            self.shape['w']
         )
-        spatiotemporal_output = self.spatiotemporal(spatiotemporal_input)
-        spatiotemporal_result = spatiotemporal_output.view(
-            self.input_shape["batch-size"],
-            self.input_shape["groups-per-video"]
+        x_spt = self.spt(x_spt)
+        x_spt = x_spt.view(
+            self.shape['n'],
+            self.shape['g']
         )
 
         # Make decision (merge two branches)
-        decision_make_input = torch.cat([spatial_result, spatiotemporal_result], dim=1).view(self.input_shape["batch-size"], -1)
-        decision_maker_output = self.decision_maker(decision_make_input)
+        x = torch.cat([x_spa, x_spt], dim=1).view(self.shape['n'], -1)
+        x = self.sig_1(x)
+        x = self.ln_1(x)
+        x = self.sig_2(x)
+        x = self.ln_2(x)
+        x = self.sig_3(x)
 
-        output_ = self.activation(decision_maker_output)
-        return output_
+        return x

@@ -1,0 +1,2 @@
+1. Có cần clone x ở 2 nhánh?
+2. Các hàm activation?

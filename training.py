@@ -54,7 +54,7 @@ def train(opt=None, config=None, evaluation=True):
 
         # Validation
         if evaluation:
-            with torch.no_grad:
+            with torch.no_grad():
                 val_loss = 0.0
                 for item in validation_dataloader:
                     x, y = item
