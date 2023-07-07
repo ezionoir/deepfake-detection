@@ -8,7 +8,8 @@ def get_ids(path) -> list:
         if file_name.endswith('.json'):
             with open(os.path.join(path, file_name), 'r') as f:
                 data = json.load(f)
-                ids.append(data.keys())
+                ids_in_file = [key.split('.')[0] for key in data.keys()]
+                ids.extend(ids_in_file)
 
     return ids
 

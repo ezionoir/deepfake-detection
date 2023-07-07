@@ -8,6 +8,9 @@ from modules import TheModel
 from dataset import DFDCDataset
 from utils import get_ids, load_config
 
+def to_cuda(x):
+    return x.to('cuda')
+
 def train(opt=None, config=None):
     # Load the model
     if opt.device == 'cuda':
@@ -39,6 +42,7 @@ def train(opt=None, config=None):
     )
     training_dataloader = DataLoader(training_dataset, batch_size=opt.batch_size, shuffle=True)
 
+
     # Validation dataset and data loader
     if opt.validation:
         validation_dataset = DFDCDataset(
@@ -49,11 +53,15 @@ def train(opt=None, config=None):
         )
         validation_dataloader = DataLoader(validation_dataset, batch_size=opt.batch_size, shuffle=False)
 
+
     # Training loop
     for epoch in range(opt.num_epochs):
         # Iteration on training dataset
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
             x, y = item
+            x = x.to(opt.device)
+            y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
+
             optimizer.zero_grad()
             pred = model(x)
             loss = loss_func(pred, y)
@@ -66,6 +74,9 @@ def train(opt=None, config=None):
                 val_loss = 0.0
                 for item in validation_dataloader:
                     x, y = item
+                    x = x.to(opt.device)
+                    y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
+
                     pred = model(x)
                     val_loss += loss_func(pred, y).item()
                 loss = val_loss / len(validation_dataloader)
@@ -90,4 +101,4 @@ if __name__ == '__main__':
 
     config = load_config(path='./config.json')
 
-    train(opt=opt, config=config, evaluation=True)
+    train(opt=opt, config=config)

@@ -31,7 +31,7 @@ class Spatial(nn.Module):
 
     def forward(self, x):
         # x: shape = (n, c, h, w)
-        x_ = self.eff(x)
+        x = self.eff(x)
         return x
 
 class Spatiotemporal(nn.Module):
@@ -111,22 +111,24 @@ class TheModel(nn.Module):
     def forward(self, x):
         # x: shape = (n, g, f, c, h, w)
 
+        actual_n = x.shape[0]
+
         # Spatial branch
         x_spa = x.view(
-            self.shape['n'] * self.shape['g'] * self.shape['f'],
+            actual_n * self.shape['g'] * self.shape['f'],
             self.shape['c'],
             self.shape['h'],
             self.shape['w']
         )
         x_spa = self.spa(x_spa)
         x_spa = x_spa.view(
-            self.shape['n'],
+            actual_n,
             self.shape['g'] * self.shape['f']
         )
 
         # Spatiotemporal branch
         x_spt = x.view(
-            self.shape['n'] * self.shape['g'],
+            actual_n * self.shape['g'],
             self.shape['f'],
             self.shape['c'],
             self.shape['h'],
@@ -134,12 +136,12 @@ class TheModel(nn.Module):
         )
         x_spt = self.spt(x_spt)
         x_spt = x_spt.view(
-            self.shape['n'],
+            actual_n,
             self.shape['g']
         )
 
         # Make decision (merge two branches)
-        x = torch.cat([x_spa, x_spt], dim=1).view(self.shape['n'], -1)
+        x = torch.cat([x_spa, x_spt], dim=1).view(actual_n, -1)
         x = self.sig_1(x)
         x = self.ln_1(x)
         x = self.sig_2(x)
