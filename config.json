@@ -32,5 +32,19 @@
                 "num-classes": 1
             }
         }
+    },
+
+    "loss-function": {
+        "name": "BCE"
+    },
+
+    "optimizer": {
+        "name": "Adam",
+        "learning-rate": 0.001
+    },
+
+    "sampling": {
+        "num_groups": 8,
+        "group_size": 2
     }
 }

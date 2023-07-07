@@ -1,21 +1,19 @@
 import json
-import numpy as np
-import cv2
+import os
 
-def load_landmarks(path):
-    with open(path, 'r') as f:
-        return np.array(json.load(f))
+def get_ids(folder_path) -> list:
+    ids = []
+
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith('.json'):
+            with open(os.path.join(folder_path, file_name), 'r') as f:
+                data = json.load(f)
+                ids.append(data.keys())
+
+    return ids
+
     
-def get_frame(path, index=0):
-    video = cv2.VideoCapture(path)
-
-    frame_count = 0
-    success, frame = video.read()
-
-    while frame_count < index:
-        success, frame = video.read()
-        if not success:
-            break
-        frame_count += 1
-
-    return frame
+def load_config(json_path) -> dict:
+    with open(json_path, 'r') as f:
+        config = json.load(f)
+        return config

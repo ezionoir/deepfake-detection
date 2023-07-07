@@ -4,7 +4,7 @@ import json
 import cv2
 import numpy as np
 
-class TrainingDataset(Dataset):
+class DFDCDataset(Dataset):
     def __init__(self, ids: list, frames_path, labels_path, transform=None, sampling=None):
         self.ids = ids
         self.frames_path = frames_path
@@ -18,7 +18,7 @@ class TrainingDataset(Dataset):
         return len(self.ids)
     
     def __getitem__(self, index):
-        id = self.id[index]
+        id = self.ids[index]
         folder_path = os.path.join(self.frames_path, id)
 
         frame_names = self.get_frame_names(folder_path=folder_path, sampling=self.sampling)
@@ -27,10 +27,12 @@ class TrainingDataset(Dataset):
         for group in frame_names:
             volume = []
             for frame_name in group:
-                image = cv2.imread(os.path.join(self.frames_path, id, frame_name))
+                image = cv2.imread(os.path.join(folder_path, frame_name))
+                image = cv2.resize(image, (64, 64))
+                image = cv2.normalize(image.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = np.transpose(image, axes=(2, 0, 1))
-                item.append(image)
+                volume.append(image)
             item.append(np.stack(volume))
 
         return np.stack(item), self.labels[id]
@@ -40,16 +42,16 @@ class TrainingDataset(Dataset):
     
         for json_file in os.listdir(labels_path):
             with open(os.path.join(labels_path, json_file), 'r') as f:
-                file_data = json.load(f)["root"]
+                file_data = json.load(f)
                 for name, details in file_data.items():
                     id = name.split('.')[0]
-                    labels[id] = 1 if details["label"] == 'FAKE' else 0
+                    labels[id] = details["is_fake"]
 
         return labels
     
     def get_frame_names(self, folder_path, sampling=None):
         num_groups = sampling['num_groups']
-        num_frames_per_group = sampling['num_frames_per_group']
+        num_frames_per_group = sampling['group_size']
 
         faces = {}
         for file_name in os.listdir(folder_path):
@@ -68,7 +70,7 @@ class TrainingDataset(Dataset):
             group = []
             for j in range(num_frames_per_group):
                 idx = i * interval + j
-                group.append(str(idx) + '_0.png')
+                group.append(str(str(idx) + '_0.png'))
             frame_names.append(group)
 
         return frame_names
