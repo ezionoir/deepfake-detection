@@ -85,8 +85,8 @@ def train(opt=None, config=None):
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f}')
 
         # Save model every 10 epochs
-        if epoch % 10 == 9:
-            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch) + '.pth'))
+        if epoch % 100 == 99:
+            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
 
 if __name__ == '__main__':
     parser = ArgumentParser()
