@@ -86,7 +86,7 @@ def train(opt=None, config=None):
 
         # Save model every 10 epochs
         if epoch % 10 == 9:
-            torch.save(model, opt.save_path)
+            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch) + '.pth'))
 
 if __name__ == '__main__':
     parser = ArgumentParser()
