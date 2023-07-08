@@ -35,10 +35,11 @@ def train(opt=None, config=None):
 
     # Training dataset and data loader
     training_dataset = DFDCDataset(
-        ids=get_ids(path=os.path.join(opt.metadata_path, 'training')),
+        ids=get_ids(path=os.path.join(opt.data_path, 'training')),
         frames_path=os.path.join(opt.data_path, 'training'),
         labels_path=os.path.join(opt.metadata_path, 'training'),
-        sampling=config["sampling"]
+        sampling=config["sampling"],
+        img_size=config["input-size"]
     )
     training_dataloader = DataLoader(training_dataset, batch_size=config["batch-size"], shuffle=True)
 
@@ -46,10 +47,11 @@ def train(opt=None, config=None):
     # Validation dataset and data loader
     if opt.validation:
         validation_dataset = DFDCDataset(
-            ids=get_ids(path=os.path.join(opt.metadata_path, 'validation')),
+            ids=get_ids(path=os.path.join(opt.data_path, 'validation')),
             frames_path=os.path.join(opt.data_path, 'validation'),
             labels_path=os.path.join(opt.metadata_path, 'validation'),
-            sampling=config["sampling"]
+            sampling=config["sampling"],
+            img_size=config["input-size"]
         )
         validation_dataloader = DataLoader(validation_dataset, batch_size=config["batch-size"], shuffle=False)
 
