@@ -40,7 +40,7 @@ def train(opt=None, config=None):
         labels_path=os.path.join(opt.metadata_path, 'training'),
         sampling=config["sampling"]
     )
-    training_dataloader = DataLoader(training_dataset, batch_size=opt.batch_size, shuffle=True)
+    training_dataloader = DataLoader(training_dataset, batch_size=config["batch-size"], shuffle=True)
 
 
     # Validation dataset and data loader
@@ -51,7 +51,7 @@ def train(opt=None, config=None):
             labels_path=os.path.join(opt.metadata_path, 'validation'),
             sampling=config["sampling"]
         )
-        validation_dataloader = DataLoader(validation_dataset, batch_size=opt.batch_size, shuffle=False)
+        validation_dataloader = DataLoader(validation_dataset, batch_size=config["batch-size"], shuffle=False)
 
 
     # Training loop
@@ -89,7 +89,6 @@ def train(opt=None, config=None):
 if __name__ == '__main__':
     parser = ArgumentParser()
 
-    parser.add_argument('--batch_size', type=int, default=1, help='Batch size.')
     parser.add_argument('--device', default='cpu', help='Device (cpu/cuda).')
     parser.add_argument('--num_epochs', type=int, default=10000, help='Number of epochs.')
     parser.add_argument('--metadata_path', help='Path to metadata folder.')

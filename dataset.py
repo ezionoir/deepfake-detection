@@ -3,39 +3,75 @@ import os
 import json
 import cv2
 import numpy as np
+import torch
+import albumentations as albu
+from torchvision.transforms import ToTensor
 
 class DFDCDataset(Dataset):
-    def __init__(self, ids: list, frames_path, labels_path, transform=None, sampling=None):
-        self.ids = ids
+    def __init__(self, ids: list, frames_path, labels_path, augmentation=False, sampling=None, img_size=None):
+        self.ids = ids  # expected id = name_faceid
         self.frames_path = frames_path
         self.labels_path = labels_path
-        self.transfrom = transform
         self.sampling = sampling
+        self.img_size = img_size
 
         self.labels = self.get_labels(labels_path=self.labels_path)
+
+        if augmentation:
+            self.aug = albu.Compose([
+                # Resolution
+                albu.ImageCompression(quality_lower=60, quality_upper=100, p=0.5),
+
+                # (MUST) Shape
+                albu.LongestMaxSize (max_size=self.img_size, interpolation=1, always_apply=True),
+                albu.PadIfNeeded(min_height=self.img_size, min_width=self.img_size, border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), always_apply=True),
+                albu.Resize(height=self.img_size, width=self.img_size, always_apply=True),
+
+                # RGB and blur
+                albu.GaussNoise(p=0.1),
+                albu.GaussianBlur(blur_limit=3, p=0.05),
+                albu.RandomBrightnessContrast(p=0.7),
+                albu.ToGray(p=0.2),
+
+                # Geometry
+                albu.HorizontalFlip(),
+                albu.ShiftScaleRotate(shift_limit=(0.05, 0.05), scale_limit=(0.1, 0.1), rotate_limit=(5, 5), border_mode=cv2.BORDER_CONSTANT, p=0.5),
+            ], additional_targets={'image0': 'image'}, is_check_shapes=False
+            )
+        else:
+            self.aug = albu.Compose([
+                albu.LongestMaxSize (max_size=self.img_size, interpolation=1, always_apply=True),
+                albu.PadIfNeeded(min_height=self.img_size, min_width=self.img_size, border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), always_apply=True),
+                albu.Resize(height=self.img_size, width=self.img_size, always_apply=True),
+            ], additional_targets={'image0': 'image'}, is_check_shapes=False
+            )
 
     def __len__(self):
         return len(self.ids)
     
     def __getitem__(self, index):
         id = self.ids[index]
-        folder_path = os.path.join(self.frames_path, id)
+        video, face = id.split('_')
+        folder_path = os.path.join(self.frames_path, video, face)
 
-        frame_names = self.get_frame_names(folder_path=folder_path, sampling=self.sampling)
+        frame_names = self.get_frame_names(folder_path=folder_path)
 
         item = []
         for group in frame_names:
             volume = []
             for frame_name in group:
                 image = cv2.imread(os.path.join(folder_path, frame_name))
-                image = cv2.resize(image, (64, 64))
-                image = cv2.normalize(image.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                image = np.transpose(image, axes=(2, 0, 1))
                 volume.append(image)
-            item.append(np.stack(volume))
 
-        return np.stack(item), self.labels[id]
+            transformed = self.aug(image=volume[0], image0=volume[1])
+            volume = [transformed['image'], transformed['image0']]
+            
+            item.append(np.stack([transformed['image'], transformed['image0']]))
+
+        sample = np.stack(item)
+
+        return self.to_tensor(sample), self.labels[video]
 
     def get_labels(self, labels_path):
         labels = {}
@@ -49,20 +85,13 @@ class DFDCDataset(Dataset):
 
         return labels
     
-    def get_frame_names(self, folder_path, sampling=None):
-        num_groups = sampling['num_groups']
-        num_frames_per_group = sampling['group_size']
+    def get_frame_names(self, folder_path):
+        num_groups = self.sampling['num_groups']
+        num_frames_per_group = self.sampling['group_size']
 
-        faces = {}
-        for file_name in os.listdir(folder_path):
-            face = int(file_name.split('.')[0].split('_')[-1])
+        file_names = os.listdir(folder_path)
+        total_frames = len(file_names)
 
-            if face not in faces:
-                faces[face] = [file_name]
-            else:
-                faces[face].append(file_name)
-
-        total_frames = len(faces[0])
         interval = (total_frames - num_frames_per_group) // num_groups
 
         frame_names = []
@@ -70,78 +99,20 @@ class DFDCDataset(Dataset):
             group = []
             for j in range(num_frames_per_group):
                 idx = i * interval + j
-                group.append(str(str(idx) + '_0.png'))
+                group.append(str(str(idx) + '.png'))
             frame_names.append(group)
 
         return frame_names
     
-# class TestDataset(Dataset):
-#     def __init__(self, ids: list, frames_path, labels_path, transform=None, sampling=None):
-#         self.ids = ids
-#         self.frames_path = frames_path
-#         self.labels_path = labels_path
-#         self.transfrom = transform
-#         self.sampling = sampling
+    def to_tensor(self, sample):
+        transform = ToTensor()
 
-#         self.labels = self.get_labels(labels_path=self.labels_path)
+        video_tensor = []
+        for group in sample:
+            group_tensor = []
+            for frame in group:
+                frame = transform(frame)
+                group_tensor.append(frame)
+            video_tensor.append(torch.stack(group_tensor, dim=0))
 
-#     def __len__(self):
-#         return len(self.ids)
-    
-#     def __getitem__(self, index):
-#         id = self.ids[index]
-#         folder_path = os.path.join(self.frames_path, id)
-
-#         frame_names = self.get_frame_names(folder_path=folder_path, sampling=self.sampling)
-
-#         item = []
-#         for group in frame_names:
-#             volume = []
-#             for frame_name in group:
-#                 image = cv2.imread(os.path.join(folder_path, frame_name))
-#                 image = cv2.resize(image, (64, 64))
-#                 image = cv2.normalize(image.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
-#                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-#                 image = np.transpose(image, axes=(2, 0, 1))
-#                 volume.append(image)
-#             item.append(np.stack(volume))
-
-#         return np.stack(item), self.labels[id]
-
-#     def get_labels(self, labels_path):
-#         labels = {}
-    
-#         for json_file in os.listdir(labels_path):
-#             with open(os.path.join(labels_path, json_file), 'r') as f:
-#                 file_data = json.load(f)
-#                 for name, details in file_data.items():
-#                     id = name.split('.')[0]
-#                     labels[id] = details["is_fake"]
-
-#         return labels
-    
-#     def get_frame_names(self, folder_path, sampling=None):
-#         num_groups = sampling['num_groups']
-#         num_frames_per_group = sampling['num_frames_per_group']
-
-#         faces = {}
-#         for file_name in os.listdir(folder_path):
-#             face = int(file_name.split('.')[0].split('_')[-1])
-
-#             if face not in faces:
-#                 faces[face] = [file_name]
-#             else:
-#                 faces[face].append(file_name)
-
-#         total_frames = len(faces[0])
-#         interval = (total_frames - num_frames_per_group) // num_groups
-
-#         frame_names = []
-#         for i in range(num_groups):
-#             group = []
-#             for j in range(num_frames_per_group):
-#                 idx = i * interval + j
-#                 group.append(str(str(idx) + '_0.png'))
-#             frame_names.append(group)
-
-#         return frame_names
+        return torch.stack(video_tensor, dim=0)

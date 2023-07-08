@@ -4,3 +4,5 @@ input/
 long_term.py
 test.py
 questions.txt
+custom_aug.py
+*.png

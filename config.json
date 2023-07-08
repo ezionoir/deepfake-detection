@@ -1,4 +1,6 @@
 {
+    "batch-size": 4,
+    
     "model": {
         "input-shape": {
             "batch-size": 4,
