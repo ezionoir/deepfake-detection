@@ -124,6 +124,9 @@ class TheModel(nn.Module):
         )
         self.sig_3 = nn.Sigmoid()
 
+        # self.tanh_1 = nn.Tanh()
+
+
     def forward(self, x):
         # x: shape = (n, g, f, c, h, w)
 
