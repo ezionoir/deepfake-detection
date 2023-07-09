@@ -1,0 +1,68 @@
+{
+    "description": "This config is used for testing (Google's Colab free plan). Each batch consists of 4 videos, each is sampled with 16 groups. Each group is 2-frame-lenght. All frames are resized to 64x64",
+
+    "batch-size": 4,
+
+    "input-size": 64,
+
+    "model": {
+        "input-shape": {
+            "batch-size": 4,
+            "groups-per-video": 8,
+            "frames-per-group": 2,
+            "channels": 3,
+            "height": 64,
+            "width": 64
+        },
+
+        "submodules": {
+            "spatiotemporal": {
+                "input-shape": {
+                    "batch-size": 32,
+                    "frames-per-group": 2,
+                    "channels": 3,
+                    "height": 64,
+                    "width": 64
+                },
+                "motion-diff": {
+                    "features": 3
+                },
+                "EfficientNet": {
+                    "scale": "b0",
+                    "num-classes": 1
+                }
+            },
+    
+            "spatial": {
+                "input-shape": {
+                    "batch-size": 64,
+                    "channels": 3,
+                    "height": 64,
+                    "width": 64
+                },
+                "EfficientNet": {
+                    "scale": "b7",
+                    "num-classes": 1
+                }
+            }
+        }
+    },
+
+    "sampling": {
+        "num_groups": 8,
+        "group_size": 2
+    },
+
+    "loss-function": {
+        "name": "BCE"
+    },
+
+    "optimizer": {
+        "name": "Adam",
+        "learning-rate": 0.001
+    },
+
+    "decision-strategy": {
+        "threshold": 0.8
+    }
+}

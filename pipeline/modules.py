@@ -112,17 +112,17 @@ class TheModel(nn.Module):
         self.spt = Spatiotemporal(config=self.subs["spatiotemporal"])
 
         # Merging block
-        self.sig_1 = nn.Sigmoid()
+        self.tanh_1 = nn.Tanh()
         self.ln_1 = nn.Linear(
             in_features=self.shape['g'] * self.shape['f'] + self.shape['g'],
             out_features=self.shape['g']
         )
-        self.sig_2 = nn.Sigmoid()
+        self.tanh_2 = nn.Tanh()
         self.ln_2 = nn.Linear(
             in_features=self.shape['g'],
             out_features=1
         )
-        self.sig_3 = nn.Sigmoid()
+        self.sig_1 = nn.Sigmoid()
 
         # self.tanh_1 = nn.Tanh()
 
@@ -161,10 +161,10 @@ class TheModel(nn.Module):
 
         # Make decision (merge two branches)
         x = torch.cat([x_spa, x_spt], dim=1).view(actual_n, -1)
-        x = self.sig_1(x)
+        x = self.tanh_1(x)
         x = self.ln_1(x)
-        x = self.sig_2(x)
+        x = self.tanh_2(x)
         x = self.ln_2(x)
-        x = self.sig_3(x)
+        x = self.sig_1(x)
 
         return x

@@ -8,22 +8,23 @@ from pipeline.modules import TheModel
 from pipeline.dataset import DFDCDataset
 from pipeline.utils import get_ids, load_config
 
-def to_cuda(x):
-    return x.to('cuda')
+# def count_accurate(pred, tar, thres=0.5):
+#     pred_label = []
 
-def train(opt=None, config=None):
-    # Load the model
-    if opt.device == 'cuda':
-        if torch.cuda.is_available():
-            model = TheModel(config=config["model"]).to(device='cuda')
-        else:
-            raise ValueError('CUDA not available. Please try using CPU instead.')
-    else:
-        model = TheModel(config=config["model"]).to(device='cpu')
+#     for i in pred:
+#         truth = tar[i][0]
+#         if pred[i] >= thres:
+#             label = 1.0
+
+def train(opt=None, config=None, conf_stg=None):
+    # Load model
+    if torch.cuda.is_available():
+        raise RuntimeError('No CUDA device available!')
+    model = TheModel(config=config["model"]).to(device='cuda')
 
     # Initialize function
     if config["loss-function"]["name"] == "BCE":
-        loss_func = torch.nn.BCELoss()
+        loss_func = torch.nn.BCELoss(reduction='sum')
     else:
         raise ValueError('Inapropriate loss function {}.'.format(config["loss-function"]["name"]))
 
@@ -32,6 +33,9 @@ def train(opt=None, config=None):
         optimizer = torch.optim.Adam(model.parameters(), lr=config["optimizer"]["learning-rate"])
     else:
         raise ValueError('Unavailable optimizer {}.'.format(config["optimizer"]["name"]))
+    
+    # Decision strategy
+    thres = config["decision-strategy"]["threshold"]
 
     # Training dataset and data loader
     training_dataset = DFDCDataset(
@@ -42,7 +46,6 @@ def train(opt=None, config=None):
         img_size=config["input-size"]
     )
     training_dataloader = DataLoader(training_dataset, batch_size=config["batch-size"], shuffle=True)
-
 
     # Validation dataset and data loader
     if opt.validation:
@@ -55,15 +58,15 @@ def train(opt=None, config=None):
         )
         validation_dataloader = DataLoader(validation_dataset, batch_size=config["batch-size"], shuffle=False)
 
-
     # Training loop
     for epoch in range(opt.num_epochs):
         # Iteration on training dataset
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
+            # Unpack item
             x, y = item
-            x = x.to(opt.device)
             y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
 
+            # Forward, backward and optimize paramters
             optimizer.zero_grad()
             pred = model(x)
             loss = loss_func(pred, y)
@@ -74,14 +77,19 @@ def train(opt=None, config=None):
         if opt.validation:
             with torch.no_grad():
                 val_loss = 0.0
+                count_acc = 0
+
                 for item in validation_dataloader:
                     x, y = item
-                    x = x.to(opt.device)
                     y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
 
                     pred = model(x)
+
+                    # Accumulate loss
                     val_loss += loss_func(pred, y).item()
-                loss = val_loss / len(validation_dataloader)
+                    
+                    # Accumulate accurate predict
+                loss = val_loss / len(validation_dataset)
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f}')
 
         # Save model every 10 epochs
@@ -91,15 +99,14 @@ def train(opt=None, config=None):
 if __name__ == '__main__':
     parser = ArgumentParser()
 
-    parser.add_argument('--device', default='cpu', help='Device (cpu/cuda).')
     parser.add_argument('--num_epochs', type=int, default=10000, help='Number of epochs.')
     parser.add_argument('--metadata_path', help='Path to metadata folder.')
     parser.add_argument('--data_path', help='Path to data (frames) folder.')
     parser.add_argument('--validation', type=bool, default=True, help='Test the model on validation set after every epoch.')
-    parser.add_argument('--save_path', help='Path for saving model\'s state dict.')
+    parser.add_argument('--save_path', default='./state_dict/', help='Path for saving model\'s state dict.')
 
     opt = parser.parse_args()
 
-    config = load_config(path='./config.json')
+    config = load_config(path='./config/config.json')
 
     train(opt=opt, config=config)
