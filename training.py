@@ -3,22 +3,25 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 import os
 import torch
+import numpy as np
 
 from pipeline.modules import TheModel
 from pipeline.dataset import DFDCDataset
 from pipeline.utils import get_ids, load_config
 
-# def count_accurate(pred, tar, thres=0.5):
-#     pred_label = []
-
-#     for i in pred:
-#         truth = tar[i][0]
-#         if pred[i] >= thres:
-#             label = 1.0
+def count_accurate(pred, tar, thres=0.5):
+    pred = pred.flatten().numpy()
+    tar = tar.flatten().numpy()
+    count = 0
+    for i, pred_value in enumerate(pred):
+        pred_label = 1. if pred_value >= thres else 0.
+        if np.abs(pred_label - tar[i]) < 1e-05:
+            count += 1
+    return count
 
 def train(opt=None, config=None, conf_stg=None):
     # Load model
-    if torch.cuda.is_available():
+    if not torch.cuda.is_available():
         raise RuntimeError('No CUDA device available!')
     model = TheModel(config=config["model"]).to(device='cuda')
 
@@ -64,7 +67,8 @@ def train(opt=None, config=None, conf_stg=None):
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
             # Unpack item
             x, y = item
-            y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
+            x = x.to('cuda')
+            y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 
             # Forward, backward and optimize paramters
             optimizer.zero_grad()
@@ -81,7 +85,8 @@ def train(opt=None, config=None, conf_stg=None):
 
                 for item in validation_dataloader:
                     x, y = item
-                    y = torch.unsqueeze(y, 1).to(torch.float32).to(opt.device)
+                    x = x.to('cuda')
+                    y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 
                     pred = model(x)
 
@@ -89,10 +94,13 @@ def train(opt=None, config=None, conf_stg=None):
                     val_loss += loss_func(pred, y).item()
                     
                     # Accumulate accurate predict
-                loss = val_loss / len(validation_dataset)
-                print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f}')
+                    count_acc += count_accurate(pred.to('cpu'), y.to('cpu'), thres)
 
-        # Save model every 10 epochs
+                loss = val_loss / len(validation_dataset)
+                acc = count_acc / len(validation_dataset)
+                print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
+
+        # Save model every 100 epochs
         if epoch % 100 == 99:
             torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
 
