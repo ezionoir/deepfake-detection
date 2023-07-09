@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import numpy as np
+import json
 
 from pipeline.modules import TheModel
 from pipeline.dataset import DFDCDataset
@@ -61,6 +62,9 @@ def train(opt=None, config=None, conf_stg=None):
         )
         validation_dataloader = DataLoader(validation_dataset, batch_size=config["batch-size"], shuffle=False)
 
+    # Log dict
+    log_dict = {}
+
     # Training loop
     for epoch in range(opt.num_epochs):
         # Iteration on training dataset
@@ -98,7 +102,11 @@ def train(opt=None, config=None, conf_stg=None):
 
                 loss = val_loss / len(validation_dataset)
                 acc = count_acc / len(validation_dataset)
+                log_dict[epoch] = {'loss': loss, 'accuracy': acc}
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
+        
+        with open('./log_dict.json', 'w') as f:
+            json.dump(log_dict)
 
         # Save model every 100 epochs
         if epoch % 100 == 99:
