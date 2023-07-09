@@ -7,7 +7,7 @@ from numpy import stack
 import os
 import json
 
-from utils import get_video_paths
+from pipeline.utils import get_video_paths
 
 if __name__ == '__main__':
     parser = ArgumentParser()

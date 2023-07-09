@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader
 import os
 import torch
 
-from modules import TheModel
-from dataset import DFDCDataset
-from utils import get_ids, load_config
+from pipeline.modules import TheModel
+from pipeline.dataset import DFDCDataset
+from pipeline.utils import get_ids, load_config
 
 def to_cuda(x):
     return x.to('cuda')
