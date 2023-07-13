@@ -6,7 +6,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 from functools import partial
 
-from pipeline.utils import get_video_paths
+from utils import get_video_paths
 
 def crop_frames(video_path, box_folder, out_dir):
     name = os.path.basename(video_path).split('.')[0]
