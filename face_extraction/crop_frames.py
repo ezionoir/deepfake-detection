@@ -32,8 +32,8 @@ def crop_frames(video_path, box_folder, out_dir):
             if not os.path.isdir(out_fol):
                 os.mkdir(out_fol)
             if len(face) > 0:
-                left = int(face[0])
-                top = int(face[1])
+                left = max(int(face[0]), 0)
+                top = max(int(face[1]), 0)
                 right = int(face[2])
                 bottom = int(face[3])
 
