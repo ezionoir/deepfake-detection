@@ -51,21 +51,21 @@ class Spatiotemporal(nn.Module):
         # Motion differences
         self.conv3d_1 = nn.Conv3d(
             in_channels=3,
-            out_channels=self.config["motion-diff"]["features"],
+            out_channels=self.config["motion-diff"]["features"][0],
             kernel_size=(self.shape['d'], 3, 3),
             stride=1,
             padding=(1, 1, 1)
         )
         self.conv3d_2 = nn.Conv3d(
-            in_channels=3,
-            out_channels=3,
+            in_channels=self.config["motion-diff"]["features"][0],
+            out_channels=self.config["motion-diff"]["features"][1],
             kernel_size=(2, 3, 3),
             stride=1,
             padding=(0, 1, 1)
         )
         self.conv3d_3 = nn.Conv3d(
-            in_channels=3,
-            out_channels=3,
+            in_channels=self.config["motion-diff"]["features"][1],
+            out_channels=self.config["motion-diff"]["features"][2],
             kernel_size=(2, 3, 3),
             stride=1,
             padding=(0, 1, 1)
