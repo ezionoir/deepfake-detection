@@ -106,7 +106,7 @@ def train(opt=None, config=None, conf_stg=None):
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
         
         with open('./log_dict.json', 'w') as f:
-            json.dump(log_dict)
+            json.dump(log_dict, f)
 
         # Save model every 100 epochs
         if epoch % 100 == 99:
