@@ -67,6 +67,8 @@ def train(opt=None, config=None, conf_stg=None):
 
     # Training loop
     for epoch in range(opt.num_epochs):
+        model.train()
+
         # Iteration on training dataset
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
             # Unpack item
@@ -83,6 +85,7 @@ def train(opt=None, config=None, conf_stg=None):
 
         # Validation
         if opt.validation:
+            model.eval()
             with torch.no_grad():
                 val_loss = 0.0
                 count_acc = 0
@@ -104,13 +107,12 @@ def train(opt=None, config=None, conf_stg=None):
                 acc = count_acc / len(validation_dataset)
                 log_dict[epoch] = {'loss': loss, 'accuracy': acc}
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
-        
-        with open('./log_dict.json', 'w') as f:
-            json.dump(log_dict, f)
 
-        # Save model every 100 epochs
-        if epoch % 100 == 99:
-            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
+        # Save model every epochs
+        torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
+
+    with open('./log_dict.json', 'w') as f:
+        json.dump(log_dict, f)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
