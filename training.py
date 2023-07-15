@@ -71,6 +71,7 @@ def train(opt=None, config=None, conf_stg=None):
 
         # Iteration on training dataset
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
+        # for item in training_dataloader:
             # Unpack item
             x, y = item
             x = x.to('cuda')
@@ -85,8 +86,9 @@ def train(opt=None, config=None, conf_stg=None):
 
         # Validation
         if opt.validation:
-            model.eval()
             with torch.no_grad():
+                model.eval()
+                
                 val_loss = 0.0
                 count_acc = 0
 
@@ -108,8 +110,12 @@ def train(opt=None, config=None, conf_stg=None):
                 log_dict[epoch] = {'loss': loss, 'accuracy': acc}
                 print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
 
-        # Save model every epochs
-        torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
+                with open(opt.log_path, 'a') as f:
+                    f.write(f'Epoch {epoch + 1}: loss {loss} ---- accuracy {acc}' + '\n')
+
+        # Save model every 10 epochs
+        if epoch % 10 == 9:
+            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
 
     with open('./log_dict.json', 'w') as f:
         json.dump(log_dict, f)
@@ -122,9 +128,10 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', help='Path to data (frames) folder.')
     parser.add_argument('--validation', type=bool, default=True, help='Test the model on validation set after every epoch.')
     parser.add_argument('--save_path', default='./state_dict/', help='Path for saving model\'s state dict.')
+    parser.add_argument('--log_path', help='Path for saving logs.')
 
     opt = parser.parse_args()
 
-    config = load_config(path='./config/config.json')
+    config = load_config(path='./config/train_config.json')
 
     train(opt=opt, config=config)

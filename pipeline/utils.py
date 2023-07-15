@@ -18,7 +18,8 @@ def get_ids(path) -> list:
     
     for video in os.listdir(path):
         for face in os.listdir(os.path.join(path, video)):
-            ids.append(video + '_' + face)
+            if face == '0' and len(os.listdir(os.path.join(path, video, face))) >= 24:
+                ids.append(video + '_' + face)
 
     return ids
     
