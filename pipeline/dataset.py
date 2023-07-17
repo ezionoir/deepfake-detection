@@ -88,21 +88,26 @@ class DFDCDataset(Dataset):
     def get_frame_names(self, folder_path):
         num_groups = self.sampling['num_groups']
         num_frames_per_group = self.sampling['group_size']
-
         file_names = os.listdir(folder_path)
+        file_names = self.sort_files(file_names)
         total_frames = len(file_names)
-
         interval = (total_frames - num_frames_per_group) // num_groups
-
         frame_names = []
+
         for i in range(num_groups):
             group = []
             for j in range(num_frames_per_group):
                 idx = i * interval + j
-                group.append(str(str(idx) + '.png'))
+                # group.append(str(str(idx) + '.png'))
+                group.append(file_names[idx])
             frame_names.append(group)
 
         return frame_names
+    
+    def sort_files(self, file_names):
+        to_int = [int(x.split('.')[0]) for x in file_names]
+        to_int.sort()
+        return [str(x) + '.png' for x in to_int]
     
     def to_tensor(self, sample):
         transform = ToTensor()

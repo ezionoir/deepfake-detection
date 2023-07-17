@@ -13,9 +13,11 @@ def evaluate_result(res, save_path):
     preds = [res[i]['pred'] for i in ids]
     tars = [res[i]['tar'] for i in ids]
 
-    with open(opt.save_path, 'w') as f:
+    with open(save_path, 'w') as f:
         for id in ids:
-            f.write(id + '-->' + str(res[id]['pred']) + ' (' + str(res[id]['tar']) + ')\n')
+            pred = res[id]['pred']
+            tar = res[id]['tar']
+            f.write(f'{id} --> {pred} ({tar})\n')
 
     loss_func = torch.nn.BCELoss(reduction='sum')
     total_loss = loss_func(torch.Tensor(preds), torch.Tensor(tars))
@@ -34,7 +36,7 @@ def infer(opt, config):
         frames_path=opt.data_path,
         labels_path=opt.metadata_path,
         sampling=config['sampling'],
-        img_size=['input-size']
+        img_size=config['input-size']
     )
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -54,7 +56,9 @@ def infer(opt, config):
 
             pred = model(x)
             
-            res[id] = {'pred': pred.item(), 'tar':y.item()}
+            res[id[0]] = {'pred': pred.item(), 'tar':y.item()}
+
+    return res
 
 if __name__ == '__main__':
     parser = ArgumentParser()
