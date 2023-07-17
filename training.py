@@ -73,7 +73,7 @@ def train(opt=None, config=None, conf_stg=None):
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
         # for item in training_dataloader:
             # Unpack item
-            x, y = item
+            x, y, _ = item
             x = x.to('cuda')
             y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 

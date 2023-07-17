@@ -71,7 +71,7 @@ class DFDCDataset(Dataset):
 
         sample = np.stack(item)
 
-        return self.to_tensor(sample), self.labels[video]
+        return self.to_tensor(sample), self.labels[video], id
 
     def get_labels(self, labels_path):
         labels = {}
