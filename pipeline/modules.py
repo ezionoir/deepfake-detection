@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
+from mobilenet_v2 import mobilenet_v2
     
 class EfficientNetBlock(nn.Module):
     def __init__(self, config=None):
@@ -13,6 +14,12 @@ class EfficientNetBlock(nn.Module):
     def forward(self, x):
         x = self.efficient_net(x)
         return x
+    
+class MobileNetV2Block(nn.Module):
+    def __init__(self, config=None):
+        super().__init__()
+        self.config=config
+        self.mobile_net = mobilenet_v2(pretrained=True)
 
 class Spatial(nn.Module):
     def __init__(self, config=None):
