@@ -7,8 +7,8 @@ import torch
 import albumentations as albu
 from torchvision.transforms import ToTensor
 
-class DFDCDataset(Dataset):
-    def __init__(self, ids: list, frames_path, labels_path, augmentation=False, sampling=None, img_size=None):
+class CustomDataset(Dataset):
+    def __init__(self, ids: list, frames_path, labels_path, augmentation=False, sampling=None, img_size=224):
         self.ids = ids  # expected id = name_faceid
         self.frames_path = frames_path
         self.labels_path = labels_path
@@ -40,7 +40,7 @@ class DFDCDataset(Dataset):
             )
         else:
             self.aug = albu.Compose([
-                albu.LongestMaxSize (max_size=self.img_size, interpolation=1, always_apply=True),
+                albu.LongestMaxSize(max_size=self.img_size, interpolation=1, always_apply=True),
                 albu.PadIfNeeded(min_height=self.img_size, min_width=self.img_size, border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), always_apply=True),
                 albu.Resize(height=self.img_size, width=self.img_size, always_apply=True),
             ], additional_targets={'image0': 'image'}, is_check_shapes=False

@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from pipeline.modules import TheModel
-from pipeline.dataset import DFDCDataset
+from pipeline.dataset import CustomDataset
 from pipeline.utils import load_config, get_ids
 
 def evaluate_result(res, save_path):
@@ -31,7 +31,7 @@ def infer(opt, config):
     model.eval()
 
     # Dataset & dataloader
-    test_dataset = DFDCDataset(
+    test_dataset = CustomDataset(
         ids=get_ids(opt.data_path),
         frames_path=opt.data_path,
         labels_path=opt.metadata_path,

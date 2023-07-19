@@ -7,67 +7,76 @@ import numpy as np
 import json
 
 from pipeline.modules import TheModel
-from pipeline.dataset import DFDCDataset
+from pipeline.dataset import CustomDataset
 from pipeline.utils import get_ids, load_config
+from pipeline.log import Log, EpochLog
 
-def count_accurate(pred, tar, thres=0.5):
-    pred = pred.flatten().numpy()
-    tar = tar.flatten().numpy()
-    count = 0
-    for i, pred_value in enumerate(pred):
-        pred_label = 1. if pred_value >= thres else 0.
-        if np.abs(pred_label - tar[i]) < 1e-05:
-            count += 1
-    return count
+# def count_accurate(pred, tar, thres=0.5):
+#     pred = pred.flatten().numpy()
+#     tar = tar.flatten().numpy()
+#     count = 0
+#     for i, pred_value in enumerate(pred):
+#         pred_label = 1. if pred_value >= thres else 0.
+#         if np.abs(pred_label - tar[i]) < 1e-05:
+#             count += 1
+#     return count
 
 def train(opt=None, config=None, conf_stg=None):
     # Load model
     if not torch.cuda.is_available():
         raise RuntimeError('No CUDA device available!')
-    model = TheModel(config=config["model"]).to(device='cuda')
+    model = TheModel(config=config['model']).to(device='cuda')
 
     # Initialize function
-    if config["loss-function"]["name"] == "BCE":
+    if config['loss-function']['name'] == 'BCE':
         loss_func = torch.nn.BCELoss(reduction='sum')
     else:
-        raise ValueError('Inapropriate loss function {}.'.format(config["loss-function"]["name"]))
+        raise ValueError('Inapropriate loss function {}.'.format(config['loss-function']['name']))
 
     # Initialize optimizer
-    if config["optimizer"]["name"] == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=config["optimizer"]["learning-rate"])
+    if config['optimizer']['name'] == 'Adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=config['optimizer']['learning-rate'])
     else:
-        raise ValueError('Unavailable optimizer {}.'.format(config["optimizer"]["name"]))
+        raise ValueError('Unavailable optimizer {}.'.format(config['optimizer']['name']))
     
     # Decision strategy
-    thres = config["decision-strategy"]["threshold"]
+    thres = config['decision-strategy']['threshold']
 
     # Training dataset and data loader
-    training_dataset = DFDCDataset(
+    training_dataset = CustomDataset(
         ids=get_ids(path=os.path.join(opt.data_path, 'training')),
         frames_path=os.path.join(opt.data_path, 'training'),
         labels_path=os.path.join(opt.metadata_path, 'training'),
-        sampling=config["sampling"],
-        img_size=config["input-size"]
+        sampling=config['sampling'],
+        img_size=config['input-size']
     )
-    training_dataloader = DataLoader(training_dataset, batch_size=config["batch-size"], shuffle=True)
+    training_dataloader = DataLoader(training_dataset, batch_size=config['batch-size'], shuffle=True)
 
     # Validation dataset and data loader
     if opt.validation:
-        validation_dataset = DFDCDataset(
+        validation_dataset = CustomDataset(
             ids=get_ids(path=os.path.join(opt.data_path, 'validation')),
             frames_path=os.path.join(opt.data_path, 'validation'),
             labels_path=os.path.join(opt.metadata_path, 'validation'),
-            sampling=config["sampling"],
-            img_size=config["input-size"]
+            sampling=config['sampling'],
+            img_size=config['input-size']
         )
-        validation_dataloader = DataLoader(validation_dataset, batch_size=config["batch-size"], shuffle=False)
+        validation_dataloader = DataLoader(validation_dataset, batch_size=config['batch-size'], shuffle=False)
 
     # Log dict
     log_dict = {}
 
+    # Log
+    train_log = Log(os.path.join(opt.log_path, 'train_log.txt'), threshold=0.5)
+    valid_log = Log(os.path.join(opt.save_path, 'valid_log.txt'), threshold=0.5)
+
     # Training loop
     for epoch in range(opt.num_epochs):
+        # Put model to train mode
         model.train()
+
+        # Start logging
+        train_epoch_log = EpochLog(epoch)
 
         # Iteration on training dataset
         for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
@@ -84,34 +93,50 @@ def train(opt=None, config=None, conf_stg=None):
             loss.backward()
             optimizer.step()
 
+            # Log batch output loss and accuracy
+            train_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+            
+        train_log.add_epoch(train_epoch_log.summary())
+
         # Validation
         if opt.validation:
             with torch.no_grad():
+                # Put model to evaluation mode
                 model.eval()
+
+                # Start logging
+                valid_epoch_log = EpochLog(epoch)
                 
-                val_loss = 0.0
-                count_acc = 0
+                # val_loss = 0.0
+                # count_acc = 0
 
                 for item in validation_dataloader:
+                    # Unpack item
                     x, y = item
                     x = x.to('cuda')
                     y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 
+                    # Feed through the frozen network
                     pred = model(x)
 
-                    # Accumulate loss
-                    val_loss += loss_func(pred, y).item()
+                    # Log
+                    valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+                
+                valid_log.add_epoch()
+
+                    # # Accumulate loss
+                    # val_loss += loss_func(pred, y).item()
                     
-                    # Accumulate accurate predict
-                    count_acc += count_accurate(pred.to('cpu'), y.to('cpu'), thres)
+                    # # Accumulate accurate predict
+                    # count_acc += count_accurate(pred.to('cpu'), y.to('cpu'), thres)
 
-                loss = val_loss / len(validation_dataset)
-                acc = count_acc / len(validation_dataset)
-                log_dict[epoch] = {'loss': loss, 'accuracy': acc}
-                print(f'Validation loss ({config["loss-function"]["name"]}): {loss:.8f} ---- Accuracy: {acc:.2f}')
+                # loss = val_loss / len(validation_dataset)
+                # acc = count_acc / len(validation_dataset)
+                # log_dict[epoch] = {'loss': loss, 'accuracy': acc}
+                # print(f'Validation loss ({config[\'loss-function\'][\'name\']}): {loss:.8f} ---- Accuracy: {acc:.2f}')
 
-                with open(opt.log_path, 'a') as f:
-                    f.write(f'Epoch {epoch + 1}: loss {loss} ---- accuracy {acc}' + '\n')
+                # with open(opt.log_path, 'a') as f:
+                #     f.write(f'Epoch {epoch + 1}: loss {loss} ---- accuracy {acc}' + '\n')
 
         # Save model every 10 epochs
         if epoch % 10 == 9:

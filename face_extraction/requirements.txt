@@ -1,3 +1,0 @@
-torch
-face-detection
-tqdm
