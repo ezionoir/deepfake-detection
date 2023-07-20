@@ -4,16 +4,17 @@ from efficientnet_pytorch import EfficientNet
 from mobilenet_v2 import mobilenet_v2
     
 class EfficientNetBlock(nn.Module):
-    def __init__(self, config=None):
+    def __init__(self, config=None, freeze_lower=False):
         super().__init__()
 
         self.config = config
 
         self.efficient_net = EfficientNet.from_pretrained(model_name=f'efficientnet-{self.config["scale"]}', num_classes=self.config["num-classes"])
 
-        for param in self.efficient_net.parameters():
-            param.requires_grad = False
-        self.efficient_net._fc.requires_grad = True
+        if freeze_lower:
+            for param in self.efficient_net.parameters():
+                param.requires_grad = False
+            self.efficient_net._fc.requires_grad = True
 
     def forward(self, x):
         x = self.efficient_net(x)
@@ -83,7 +84,7 @@ class Spatiotemporal(nn.Module):
         )
 
         # EfficientNet block
-        self.eff = EfficientNetBlock(config=self.config["EfficientNet"])
+        self.eff = EfficientNetBlock(config=self.config["EfficientNet"], freeze_lower=True)
 
     def forward(self, x):
         # x: shape = (n, d, c, h, w)
