@@ -94,7 +94,7 @@ def train(opt=None, config=None, conf_stg=None):
             optimizer.step()
 
             # Log batch output loss and accuracy
-            train_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+            train_epoch_log.log(pred.clone().detach().to('cpu'), y.clone().detach().to('cpu'))
             
         train_log.add_epoch(train_epoch_log.summary())
 
@@ -112,7 +112,7 @@ def train(opt=None, config=None, conf_stg=None):
 
                 for item in validation_dataloader:
                     # Unpack item
-                    x, y = item
+                    x, y, _ = item
                     x = x.to('cuda')
                     y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 
@@ -122,7 +122,7 @@ def train(opt=None, config=None, conf_stg=None):
                     # Log
                     valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
                 
-                valid_log.add_epoch()
+                valid_log.add_epoch(valid_epoch_log.summary())
 
                     # # Accumulate loss
                     # val_loss += loss_func(pred, y).item()
