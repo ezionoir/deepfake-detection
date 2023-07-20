@@ -11,6 +11,10 @@ class EfficientNetBlock(nn.Module):
 
         self.efficient_net = EfficientNet.from_pretrained(model_name=f'efficientnet-{self.config["scale"]}', num_classes=self.config["num-classes"])
 
+        for param in self.efficient_net.parameters():
+            param.requires_grad = False
+        self.efficient_net._fc.requires_grad = True
+
     def forward(self, x):
         x = self.efficient_net(x)
         return x
