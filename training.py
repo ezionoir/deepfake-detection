@@ -35,7 +35,7 @@ def train(opt=None, config=None, conf_stg=None):
 
     # Initialize optimizer
     if config['optimizer']['name'] == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters(), lr=config['optimizer']['learning-rate'])
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'])
     else:
         raise ValueError('Unavailable optimizer {}.'.format(config['optimizer']['name']))
     
@@ -68,7 +68,7 @@ def train(opt=None, config=None, conf_stg=None):
 
     # Log
     train_log = Log(os.path.join(opt.log_path, 'train_log.txt'), threshold=0.5)
-    valid_log = Log(os.path.join(opt.save_path, 'valid_log.txt'), threshold=0.5)
+    valid_log = Log(os.path.join(opt.log_path, 'valid_log.txt'), threshold=0.5)
 
     # Training loop
     for epoch in range(opt.num_epochs):

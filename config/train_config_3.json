@@ -1,0 +1,68 @@
+{
+    "description": "This config is used for training.",
+
+    "batch-size": 4,
+
+    "input-size": 224,
+
+    "model": {
+        "input-shape": {
+            "batch-size": 4,
+            "groups-per-video": 12,
+            "frames-per-group": 2,
+            "channels": 3,
+            "height": 224,
+            "width": 224
+        },
+
+        "submodules": {
+            "spatiotemporal": {
+                "input-shape": {
+                    "batch-size": 48,
+                    "frames-per-group": 2,
+                    "channels": 3,
+                    "height": 224,
+                    "width": 224
+                },
+                "motion-diff": {
+                    "features": [1, 1, 3]
+                },
+                "EfficientNet": {
+                    "scale": "b0",
+                    "num-classes": 1
+                }
+            },
+    
+            "spatial": {
+                "input-shape": {
+                    "batch-size": 96,
+                    "channels": 3,
+                    "height": 224,
+                    "width": 224
+                },
+                "EfficientNet": {
+                    "scale": "b0",
+                    "num-classes": 1
+                }
+            }
+        }
+    },
+
+    "loss-function": {
+        "name": "BCE"
+    },
+
+    "optimizer": {
+        "name": "Adam",
+        "learning-rate": 0.001
+    },
+
+    "sampling": {
+        "num_groups": 12,
+        "group_size": 2
+    },
+
+    "decision-strategy": {
+        "threshold": 0.8
+    }
+}

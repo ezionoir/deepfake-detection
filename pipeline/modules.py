@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
-from mobilenet_v2 import mobilenet_v2
+# from mobilenet_v2 import mobilenet_v2
     
 class EfficientNetBlock(nn.Module):
     def __init__(self, config=None, freeze_lower=False):
@@ -68,6 +68,7 @@ class Spatiotemporal(nn.Module):
             stride=1,
             padding=(1, 1, 1)
         )
+        self.lrelu_1 = nn.LeakyReLU()
         self.conv3d_2 = nn.Conv3d(
             in_channels=self.config["motion-diff"]["features"][0],
             out_channels=self.config["motion-diff"]["features"][1],
@@ -75,6 +76,7 @@ class Spatiotemporal(nn.Module):
             stride=1,
             padding=(0, 1, 1)
         )
+        self.lrelu_2 = nn.LeakyReLU()
         self.conv3d_3 = nn.Conv3d(
             in_channels=self.config["motion-diff"]["features"][1],
             out_channels=self.config["motion-diff"]["features"][2],
@@ -82,6 +84,7 @@ class Spatiotemporal(nn.Module):
             stride=1,
             padding=(0, 1, 1)
         )
+        self.lrelu_3 = nn.LeakyReLU()
 
         # EfficientNet block
         self.eff = EfficientNetBlock(config=self.config["EfficientNet"], freeze_lower=True)
@@ -92,8 +95,11 @@ class Spatiotemporal(nn.Module):
         # Convert to (batch_size, channels, depth, height, width)
         x = x.permute(0, 2, 1, 3, 4)
         x = self.conv3d_1(x)
+        x = self.lrelu_1(x)
         x = self.conv3d_2(x)
+        x = self.lrelu_2(x)
         x = self.conv3d_3(x)
+        x = self.lrelu_3(x)
 
         # Convert back to (batch_size, channels, height, width)
         x = x.squeeze()
@@ -169,6 +175,67 @@ class TheModel(nn.Module):
 
         # Make decision (merge two branches)
         x = torch.cat([x_spa, x_spt], dim=1).view(actual_n, -1)
+        x = self.ln_1(x)
+        x = self.tanh_1(x)
+        x = self.ln_2(x)
+        x = self.sig_1(x)
+
+        return x
+    
+
+class TheModel2(nn.Module):
+    def __init__(self, config=None):
+        super().__init__()
+
+        # Input shape
+        self.shape = {
+            'n': config["input-shape"]["batch-size"],
+            'g': config["input-shape"]["groups-per-video"],
+            'f': config["input-shape"]["frames-per-group"],
+            'c': config["input-shape"]["channels"],
+            'h': config["input-shape"]["height"],
+            'w': config["input-shape"]["width"]
+        }
+
+        # Sub-modules configuration
+        self.subs = config["submodules"]
+
+        # Spatiotemporal block
+        self.spt = Spatiotemporal(config=self.subs["spatiotemporal"])
+
+        # Decision block
+        self.ln_1 = nn.Linear(
+            in_features=self.shape['g'],
+            out_features=self.shape['g']
+        )
+        self.tanh_1 = nn.Tanh()
+        self.ln_2 = nn.Linear(
+            in_features=self.shape['g'],
+            out_features=1
+        )
+        self.sig_1 = nn.Sigmoid()
+
+    def forward(self, x):
+        # x: shape = (n, g, f, c, h, w)
+
+        actual_n = x.shape[0]
+
+        # Spatiotemporal branch
+        x_spt = x.view(
+            actual_n * self.shape['g'],
+            self.shape['f'],
+            self.shape['c'],
+            self.shape['h'],
+            self.shape['w']
+        )
+        x_spt = self.spt(x_spt)
+        x_spt = x_spt.view(
+            actual_n,
+            self.shape['g']
+        )
+
+        # Make decision (merge two branches)
+        x = x_spt.view(actual_n, -1)
         x = self.ln_1(x)
         x = self.tanh_1(x)
         x = self.ln_2(x)
