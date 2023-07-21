@@ -35,8 +35,10 @@ def train(opt=None, config=None, conf_stg=None):
 
     # Initialize optimizer & learning rate scheduler
     if config['optimizer']['name'] == 'Adam':
-        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'], momentum=0.9)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[i for i in range(10, 101, 10)], gamma=0.1, verbose=True)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'])
+        # optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'], momentum=0.9)
+        # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[i for i in range(10, 101, 10)], gamma=0.2, verbose=True)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, verbose=True)
     else:
         raise ValueError('Unavailable optimizer {}.'.format(config['optimizer']['name']))
     
