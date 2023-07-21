@@ -12,7 +12,9 @@ class Log:
         self.save_path = save_path
         self.threshold = threshold
 
-    def add_epoch(self, epoch_log):
+    def add_epoch(self, epoch_log) -> bool:
+        is_best = False
+
         epoch = epoch_log['epoch']
         loss = epoch_log['loss']
         accuracy = epoch_log['accuracy']
@@ -20,17 +22,20 @@ class Log:
         if self.best['loss'] > loss:
             self.best['epoch'] = epoch
             self.best['loss'] = loss
+            is_best = True
 
         self.epochs[epoch] = loss
 
-        print(f'Epoch {epoch}: loss = {loss:.8f}, accuracy = {accuracy:.2f}')
+        print(f'Epoch {epoch + 1}: loss = {loss:.8f}, accuracy = {accuracy:.2f}')
 
         if self.save_path is not None:
             self.write(loss, accuracy)
+
+        return is_best
         
     def write(self, loss, accuracy):
         with open(self.save_path, 'a') as f:
-            f.write(f'Epoch {len(self.epochs): loss = {loss}, accuracy = {accuracy}}\n')
+            f.write(f'Epoch {len(self.epochs)}: loss = {loss}, accuracy = {accuracy}\n')
 
 class EpochLog:
     def __init__(self, epoch, threshold=0.5):

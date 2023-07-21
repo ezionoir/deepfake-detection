@@ -33,14 +33,15 @@ def train(opt=None, config=None, conf_stg=None):
     else:
         raise ValueError('Inapropriate loss function {}.'.format(config['loss-function']['name']))
 
-    # Initialize optimizer
+    # Initialize optimizer & learning rate scheduler
     if config['optimizer']['name'] == 'Adam':
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'])
+        optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=config['optimizer']['learning-rate'], momentum=0.9)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[i for i in range(10, 101, 10)], gamma=0.1, verbose=True)
     else:
         raise ValueError('Unavailable optimizer {}.'.format(config['optimizer']['name']))
     
-    # Decision strategy
-    thres = config['decision-strategy']['threshold']
+    # # Decision strategy
+    # thres = config['decision-strategy']['threshold']
 
     # Training dataset and data loader
     training_dataset = CustomDataset(
@@ -96,7 +97,7 @@ def train(opt=None, config=None, conf_stg=None):
             # Log batch output loss and accuracy
             train_epoch_log.log(pred.clone().detach().to('cpu'), y.clone().detach().to('cpu'))
             
-        train_log.add_epoch(train_epoch_log.summary())
+        train_best = train_log.add_epoch(train_epoch_log.summary())
 
         # Validation
         if opt.validation:
@@ -122,7 +123,7 @@ def train(opt=None, config=None, conf_stg=None):
                     # Log
                     valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
                 
-                valid_log.add_epoch(valid_epoch_log.summary())
+                valid_best = valid_log.add_epoch(valid_epoch_log.summary())
 
                     # # Accumulate loss
                     # val_loss += loss_func(pred, y).item()
@@ -138,8 +139,10 @@ def train(opt=None, config=None, conf_stg=None):
                 # with open(opt.log_path, 'a') as f:
                 #     f.write(f'Epoch {epoch + 1}: loss {loss} ---- accuracy {acc}' + '\n')
 
+        scheduler.step()
+
         # Save model every 10 epochs
-        if epoch % 10 == 9:
+        if epoch % 10 == 9 or valid_best:
             torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
 
     with open('./log_dict.json', 'w') as f:
