@@ -170,8 +170,10 @@ class CrossValidationDataset(Dataset):
         for dir in dirs:
             for video in os.listdir(dir):
                 for face in os.listdir(os.path.join(dir, video)):
-                    if face == '0' and len(os.listdir(os.path.join(dir, video, face))) >= 32:
-                        ids.append(os.path.join(dirs, video, face))
+                    if face == '0' and len(os.listdir(os.path.join(dir, video, face))) >= 24:
+                        ids.append(os.path.join(dir, video, face))
+
+        return ids
 
     def get_labels(self):
         labels = {}
@@ -202,6 +204,10 @@ class CrossValidationDataset(Dataset):
 
     def __len__(self):
         return len(self.ids)
+    
+    
+    def get_ids (self):
+        return self.ids
     
     def __getitem__(self, idx):
         id = self.ids[idx]
