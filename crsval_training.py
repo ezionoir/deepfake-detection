@@ -3,15 +3,14 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, SubsetRandomSampler
 import os
 import torch
-import json
 from sklearn.model_selection import KFold
 
 from pipeline.modules import TheModel
 from pipeline.dataset import CustomDataset, CrossValidationDataset
 from pipeline.utils import get_ids, load_config
-from pipeline.log import Log, EpochLog
+from pipeline.log import Log, EpochLog, CrsVal_Log, FoldLog
 
-def train(opt=None, config=None, conf_stg=None):
+def train(opt=None, config=None):
     # Load model
     model = TheModel(config=config['model']).to(device='cuda')
 
@@ -44,28 +43,29 @@ def train(opt=None, config=None, conf_stg=None):
     test_dataloader = DataLoader(test_dataset, batch_size=config['batch-size'], shuffle=False)
 
     # Log
-    train_log = Log(os.path.join(opt.log_path, 'train_log.txt'), threshold=0.5)
-    valid_log = Log(os.path.join(opt.log_path, 'valid_log.txt'), threshold=0.5)
-    test_log = Log(os.path.join(opt.log_path, 'test_log.txt'), threshold=0.5)
+    train_log = CrsVal_Log(os.path.join(opt.log_path, 'train_log.txt'), threshold=0.5)
+    valid_log = CrsVal_Log(os.path.join(opt.log_path, 'valid_log.txt'), threshold=0.5)
+    test_log = CrsVal_Log(os.path.join(opt.log_path, 'test_log.txt'), threshold=0.5)
 
     # Training loop
-
     for epoch in range(opt.num_epochs):
         # Put the model to train mode
         model.train()
 
-        # Start logging
-        train_epoch_log = EpochLog(epoch)
-        valid_epoch_log = EpochLog(epoch)
-        test_epoch_log = EpochLog(epoch)
+        # # Start logging
+        # train_epoch_log = EpochLog(epoch)
+        # valid_epoch_log = EpochLog(epoch)
+        # test_epoch_log = EpochLog(epoch)
 
         for fold, (train_indices, valid_indices) in enumerate(k_fold.split(dataset.get_ids())):
-            print(f'---------------------{fold}-------------------\n')
             # Data loaders
             train_subsampler = SubsetRandomSampler(train_indices)
             valid_subsampler = SubsetRandomSampler(valid_indices)
             train_loader = DataLoader(dataset, batch_size=config['batch-size'], shuffle=True, sampler=train_subsampler)
             valid_loader = DataLoader(dataset, batch_size=config['batch-size'], shuffle=False, sampler=valid_subsampler)
+
+            # Fold log
+            train_fold_log = FoldLog(epoch, fold)
 
             for item in tqdm(train_loader, desc=f'Epoch {epoch + 1}, fold {fold}'):
                 x, y, _ = item
@@ -78,11 +78,16 @@ def train(opt=None, config=None, conf_stg=None):
                 loss.backward()
                 optimizer.step()
 
-                train_epoch_log.log(pred.clone().detach().to('cpu'), y.clone().detach().to('cpu'))
+                # train_epoch_log.log(pred.clone().detach().to('cpu'), y.clone().detach().to('cpu'))
+                train_fold_log.log(pred.clone().detach().to('cpu'), y.clone().deteach().to('cpu'))
+
+            train_best = train_log.add_fold(train_fold_log.summary())
 
             # Validataion
             with torch.no_grad():
                 model.eval()
+
+                valid_fold_log = FoldLog(epoch, fold)
 
                 for item in valid_loader:
                     x, y, _ = item
@@ -91,107 +96,47 @@ def train(opt=None, config=None, conf_stg=None):
 
                     pred = model(x)
 
-                    valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+                    valid_fold_log.log(pred.to('cpu'), y.to('cpu'))
+
+                    # valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+
+                valid_best = valid_log.add_fold(valid_fold_log.summary())
+
+
+            # Run on test dataset
+            with torch.no_grad():
+                model.eval()
+
+                test_fold_log = FoldLog(epoch, fold)
+
+                for item in test_dataloader:
+                    x, y, _ = item
+                    x = x.to('cuda')
+                    y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
+
+                    pred = model(x)
+
+                    # test_epoch_log.log(pred.to('cpu'), y.to('cpu'))
+
+                    test_fold_log.log(pred.to('cpu'), y.to('cpu'))
+
+                test_best = test_log.add_fold(test_fold_log.summary())
+
+            # training_best = train_log.add_epoch(train_epoch_log.summary())
+            # valid_best = valid_log.add_epoch(valid_epoch_log.summary())
+            # test_best = test_log.add_epoch(test_epoch_log.summary())
+            
+            # if epoch % 10 == 9 or test_best:
+            if fold == opt.k_folds - 1 or test_best:
+                torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
 
         scheduler.step()
 
-        # Run on test dataset
-        with torch.no_grad():
-            model.eval()
-
-            for item in test_dataloader:
-                x, y, _ = item
-                x = x.to('cuda')
-                y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
-
-                pred = model(x)
-
-                test_epoch_log.log(pred.to('cpu'), y.to('cpu'))
-
-        training_best = train_log.add_epoch(train_epoch_log.summary())
-        valid_best = valid_log.add_epoch(valid_epoch_log.summary())
-        test_best = test_log.add_epoch(test_epoch_log.summary())
-
-        if epoch % 10 == 9 or test_best:
-            torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
-        
 
 
-    # for epoch in range(opt.num_epochs):
-    #     # Put model to train mode
-    #     model.train()
 
-    #     # Start logging
-    #     train_epoch_log = EpochLog(epoch)
 
-    #     # Iteration on training dataset
-    #     for item in tqdm(training_dataloader, desc=f'Epoch {epoch + 1}/{opt.num_epochs}'):
-    #     # for item in training_dataloader:
-    #         # Unpack item
-    #         x, y, _ = item
-    #         x = x.to('cuda')
-    #         y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
 
-    #         # Forward, backward and optimize paramters
-    #         optimizer.zero_grad()
-    #         pred = model(x)
-    #         loss = loss_func(pred, y)
-    #         loss.backward()
-    #         optimizer.step()
-
-    #         # Log batch output loss and accuracy
-    #         train_epoch_log.log(pred.clone().detach().to('cpu'), y.clone().detach().to('cpu'))
-            
-    #     train_best = train_log.add_epoch(train_epoch_log.summary())
-
-    #     # Validation
-    #     if opt.validation:
-    #         with torch.no_grad():
-    #             # Put model to evaluation mode
-    #             model.eval()
-
-    #             # Start logging
-    #             valid_epoch_log = EpochLog(epoch)
-                
-    #             # val_loss = 0.0
-    #             # count_acc = 0
-
-    #             for item in validation_dataloader:
-    #                 # Unpack item
-    #                 x, y, _ = item
-    #                 x = x.to('cuda')
-    #                 y = torch.unsqueeze(y, 1).to(torch.float32).to('cuda')
-
-    #                 # Feed through the frozen network
-    #                 pred = model(x)
-
-    #                 # Log
-    #                 valid_epoch_log.log(pred.to('cpu'), y.to('cpu'))
-                
-    #             valid_best = valid_log.add_epoch(valid_epoch_log.summary())
-
-    #                 # # Accumulate loss
-    #                 # val_loss += loss_func(pred, y).item()
-                    
-    #                 # # Accumulate accurate predict
-    #                 # count_acc += count_accurate(pred.to('cpu'), y.to('cpu'), thres)
-
-    #             # loss = val_loss / len(validation_dataset)
-    #             # acc = count_acc / len(validation_dataset)
-    #             # log_dict[epoch] = {'loss': loss, 'accuracy': acc}
-    #             # print(f'Validation loss ({config[\'loss-function\'][\'name\']}): {loss:.8f} ---- Accuracy: {acc:.2f}')
-
-    #             # with open(opt.log_path, 'a') as f:
-    #             #     f.write(f'Epoch {epoch + 1}: loss {loss} ---- accuracy {acc}' + '\n')
-
-    #     scheduler.step()
-
-    #     # Save model every 10 epochs
-    #     if epoch % 10 == 9 or valid_best:
-    #         torch.save(model.state_dict(), os.path.join(opt.save_path, 'model_' + str(epoch + 1) + '.pth'))
-
-    # with open('./log_dict.json', 'w') as f:
-    #     json.dump(log_dict, f)
 
 if __name__ == '__main__':
     parser = ArgumentParser()

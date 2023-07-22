@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
-from mobilenet_v2 import mobilenet_v2
+# from mobilenet_v2 import mobilenet_v2
     
 class EfficientNetBlock(nn.Module):
     def __init__(self, config=None, freeze_lower=False):
@@ -39,7 +39,7 @@ class Spatial(nn.Module):
             'w': config["input-shape"]["width"]
         }
 
-        self.eff = EfficientNetBlock(config=self.config["EfficientNet"])
+        self.eff = EfficientNetBlock(config=self.config["EfficientNet"], freeze_lower=True)
 
     def forward(self, x):
         # x: shape = (n, c, h, w)
@@ -111,7 +111,7 @@ class Spatiotemporal(nn.Module):
         )
 
         # EfficientNet block
-        self.eff = EfficientNetBlock(config=self.config["EfficientNet"], freeze_lower=True)
+        self.eff = EfficientNetBlock(config=self.config["EfficientNet"], freeze_lower=False)
 
     def forward(self, x):
         # x: shape = (n, d, c, h, w)
